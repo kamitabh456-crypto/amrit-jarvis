@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AMRIT JARVIS</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#050b18;color:#00eaff;font-family:Arial,sans-serif;text-align:center}
+h1{letter-spacing:3px;text-shadow:0 0 12px #00eaff}
+.circle{width:110px;height:110px;margin:25px auto;border:3px solid #00eaff;border-radius:50%;display:grid;place-items:center;font-size:55px;box-shadow:0 0 20px #00eaff}
+#status{color:#00ff88}
+.chat{max-width:500px;margin:25px auto;padding:18px;background:#101b30;border:1px solid #00eaff;border-radius:16px}
+#answer{min-height:100px;padding:15px;margin-bottom:15px;background:#071020;color:white;border-radius:10px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+input{width:100%;padding:14px;border:1px solid #00eaff;border-radius:9px;background:#071020;color:white;font-size:16px}
+button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:9px;background:#00d9ff;color:#00101b;font-size:16px;font-weight:bold}
+</style>
+</head>
+<body>
+<h1>AMRIT JARVIS</h1>
+<div class="circle">🤖</div>
+<p id="status">SYSTEM ONLINE</p>
+<div class="chat">
+<div id="answer">Hello Amrit! I am Jarvis. How can I help you?</div>
+<input id="question" placeholder="Ask Jarvis anything...">
+<button onclick="askJarvis()">⚡ ASK AI</button>
+<button onclick="listen()">🎤 SPEAK TO JARVIS</button>
+</div>
+<script>
+const answer=document.getElementById("answer");
+const statusText=document.getElementById("status");
+
+function speakText(text){
+  if(!("speechSynthesis" in window)){
+    statusText.textContent="TEXT TO SPEECH NOT SUPPORTED";
+    return;
+  }
+  speechSynthesis.cancel();
+  const msg=new SpeechSynthesisUtterance(text);
+  const voices=speechSynthesis.getVoices();
+  const hindi=voices.filter(v=>v.lang.toLowerCase().startsWith("hi"));
+  const male=hindi.find(v=>/male|man|deep|david/i.test(v.name));
+  msg.voice=male||hindi[0]||voices.find(v=>v.lang.toLowerCase().startsWith("en"))||null;
+  msg.lang=msg.voice?.lang||"hi-IN";
+  msg.pitch=0.7;
+  msg.rate=0.9;
+  msg.onstart=()=>statusText.textContent="JARVIS SPEAKING...";
+  msg.onend=()=>statusText.textContent="SYSTEM ONLINE";
+  msg.onerror=()=>statusText.textContent="VOICE ERROR";
+  speechSynthesis.speak(msg);
+}
+
+async function askJarvis(){
+  const q=document.getElementById("question").value.trim();
+  if(!q)return;
+  answer.textContent="Jarvis is thinking...";
+  statusText.textContent="PROCESSING...";
+  try{
+    const r=await fetch("/api/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:q})
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||"AI request failed");
+    const reply=data.reply||data.error||"No response received.";
+    answer.textContent=reply;
+    statusText.textContent="SYSTEM ONLINE";
+    if(data.reply)speakText(reply);
+  }catch(e){
+    answer.textContent="Error: "+e.message;
+    statusText.textContent="CONNECTION ERROR";
+  }
+}
+
+function listen(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    alert("Voice input is not supported. Try Chrome.");
+    return;
+  }
+  const rec=new SR();
+  rec.lang="hi-IN";
+  rec.onstart=()=>statusText.textContent="LISTENING...";
+  rec.onresult=e=>{
+    document.getElementById("question").value=e.results[0][0].transcript;
+    askJarvis();
+  };
+rec.onerror=(e)=>{statusText.textContent="VOICE ERROR: "+e.error;};
+  rec.onend=()=>{if(statusText.textContent==="LISTENING...")statusText.textContent="SYSTEM ONLINE"};
+  rec.start();
+}
+
+document.getElementById("question").addEventListener("keydown",e=>{
+  if(e.key==="Enter")askJarvis();
+});
+</script>
+</body>
+</html>
